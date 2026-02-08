@@ -1,0 +1,41 @@
+name: Sync Fork with Upstream
+
+# Runs daily and can be triggered manually
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8:00 UTC
+  workflow_dispatch:       # Manual trigger from GitHub Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/vignesh07/clawdbot-railway-template.git
+          git fetch upstream main
+
+      - name: Check for differences
+        id: check
+        run: |
+          BEHIND=$(git rev-list --count main..upstream/main)
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "Fork is $BEHIND commits behind upstream"
+
+      - name: Merge upstream changes
+        if: steps.check.outputs.behind != '0'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git merge upstream/main --no-edit
+          git push origin main
