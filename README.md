@@ -71,6 +71,39 @@ If you’re filing a bug, please include the output of:
 4) Copy the **Bot Token** and paste it into `/setup`
 5) Invite the bot to your server (OAuth2 URL Generator → scopes: `bot`, `applications.commands`; then choose permissions)
 
+## Persistence (Railway volume)
+
+Railway containers have an ephemeral filesystem. Only the mounted volume at `/data` persists across restarts/redeploys.
+
+What persists cleanly today:
+- **Custom skills / code:** anything under `OPENCLAW_WORKSPACE_DIR` (default: `/data/workspace`)
+- **Node global tools (npm/pnpm):** this template configures defaults so global installs land under `/data`:
+  - npm globals: `/data/npm` (binaries in `/data/npm/bin`)
+  - pnpm globals: `/data/pnpm` (binaries) + `/data/pnpm-store` (store)
+- **Python packages:** create a venv under `/data` (example below). The runtime image includes Python + venv support.
+
+What does *not* persist cleanly:
+- `apt-get install ...` (installs into `/usr/*`)
+- Homebrew installs (typically `/opt/homebrew` or similar)
+
+### Optional bootstrap hook
+
+If `/data/workspace/bootstrap.sh` exists, the wrapper will run it on startup (best-effort) before starting the gateway.
+Use this to initialize persistent install prefixes or create a venv.
+
+Example `bootstrap.sh`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Example: create a persistent python venv
+python3 -m venv /data/venv || true
+
+# Example: ensure npm/pnpm dirs exist
+mkdir -p /data/npm /data/npm-cache /data/pnpm /data/pnpm-store
+```
+
 ## Troubleshooting
 
 ### “disconnected (1008): pairing required” / dashboard health offline
@@ -82,6 +115,11 @@ Fix:
 - Use the **Debug Console**:
   - `openclaw devices list`
   - `openclaw devices approve <requestId>`
+
+If `openclaw devices list` shows no pending request IDs:
+- Make sure you’re visiting the Control UI at `/openclaw` (or your native app) and letting it attempt to connect
+- Ensure your state dir is the Railway volume (recommended): `OPENCLAW_STATE_DIR=/data/.openclaw`
+- Check `/setup/api/debug` for the active state/workspace dirs + gateway readiness
 
 ### “unauthorized: gateway token mismatch”
 
@@ -102,6 +140,13 @@ Checklist:
 - Ensure **Public Networking** is enabled (Railway will inject `PORT`).
 - Check Railway logs for the wrapper error: it will show `Gateway not ready:` with the reason.
 
+### Legacy CLAWDBOT_* env vars / multiple state directories
+
+If you see warnings about deprecated `CLAWDBOT_*` variables or state dir split-brain (e.g. `~/.openclaw` vs `/data/...`):
+- Use `OPENCLAW_*` variables only
+- Ensure `OPENCLAW_STATE_DIR=/data/.openclaw` and `OPENCLAW_WORKSPACE_DIR=/data/workspace`
+- Redeploy after fixing Railway Variables
+
 ### Build OOM (out of memory) on Railway
 
 Building OpenClaw from source can exceed small memory tiers.
@@ -115,15 +160,15 @@ Recommendations:
 ```bash
 docker build -t clawdbot-railway-template .
 
-docker run --rm -p 3000:3000 \
-  -e PORT=3000 \
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
   -e SETUP_PASSWORD=test \
   -e OPENCLAW_STATE_DIR=/data/.openclaw \
   -e OPENCLAW_WORKSPACE_DIR=/data/workspace \
   -v $(pwd)/.tmpdata:/data \
   clawdbot-railway-template
 
-# open http://localhost:3000/setup (password: test)
+# open http://localhost:8080/setup (password: test)
 ```
 
 ---
