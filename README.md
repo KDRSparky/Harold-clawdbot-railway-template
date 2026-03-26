@@ -187,6 +187,6 @@ docker run --rm -p 8080:8080 \
   ![Jake Cooper endorsement tweet screenshot](assets/railway-ceo-endorsement.jpg)
 
 - Created and maintained by **Vignesh N (@vignesh07)**
-- **1800+ deploys on Railway and counting** [Link to template on Railway](https://railway.com/deploy/clawdbot-railway-template)
+- **11000+ deploys on Railway and counting** [Link to template on Railway](https://railway.com/deploy/clawdbot-railway-template)
 
 ![Railway template deploy count](assets/railway-deploys.jpg)
